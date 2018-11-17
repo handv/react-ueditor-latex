@@ -1,3 +1,9 @@
+# 项目基于[create-react-app](https://github.com/facebook/create-react-app)
+
+- 本地部署
+
+npm start
+
 # 功能点
 
 - ueditor in react
