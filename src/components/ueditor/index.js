@@ -81,24 +81,29 @@ class Ueditor extends React.Component {
 
   // latex公式转换成ueditor识别的base64图片
   latex2Img = content => {
-    const latex = content.match(/\\\(.*?\\\)|\$\$.*?\$\$/g)
-    if (latex) {
+    const REGEX = /\\\(.*?\\\)|\$[^$].*?[^$]\$|\$\$.*?\$\$/g
+    const REGEX2 = /\$[^$].*?[^$]\$/g
+    const latexs = content.match(REGEX)
+    if (latexs) {
       const latexMap = new Map()
       window.drawLaTex(content, base64Imgs => {
         base64Imgs.map((img, index) => {
+          const latex = latexs[index]
+          let parseLatex = null
+          // 如果latex以一个$开头和结束，去掉该$;否则去掉两个$,或\(
+          if (REGEX2.test(latex)) {
+            parseLatex = latex.slice(1, -1)
+          } else {
+            parseLatex = latex.slice(2, -2)
+          }
           latexMap.set(
-            latex[index],
-            `<img class="kfformula" src='${img}' data-latex='${latex[
-              index
-            ].slice(2, -2)}'/>`
+            latex,
+            `<img class="kfformula" src='${img}' data-latex='${parseLatex}'/>`
           )
           return null
         })
         const text =
-          content &&
-          content.replace(/\\\(.*?\\\)|\$\$.*?\$\$/g, match =>
-            latexMap.get(match)
-          )
+          content && content.replace(REGEX, match => latexMap.get(match))
         this.ue.setContent(text || content)
       })
     }
