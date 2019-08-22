@@ -5,19 +5,21 @@ import React from 'react'
 import PropTypes from 'prop-types'
 
 let ueIndex = 0
+const REGEX = /\\\(.*?\\\)|\$\$.*?\$\$|\$[^$].*?[^$]\$|\\\[.*?\\\]/g;
+const REGEX2 = /\$[^$].*?[^$]\$/g
 
 class Ueditor extends React.Component {
   static propTypes = {
     content: PropTypes.string,
     onChange: PropTypes.func.isRequired,
     width: PropTypes.number,
-    height: PropTypes.number
+    height: PropTypes.number,
   }
 
   static defaultProps = {
     content: '',
     width: 1000,
-    height: 320
+    height: 320,
   }
 
   constructor(props) {
@@ -33,31 +35,14 @@ class Ueditor extends React.Component {
   componentDidMount() {
     this.ue = window.UE.getEditor(this.ueId, {
       initialFrameWidth: this.props.width,
-      initialFrameHeight: this.props.height
+      initialFrameHeight: this.props.height,
     })
     this.ue.ready(() => {
       this.initEditor()
-      if (
-        typeof this.props.content === 'string' &&
-        this.props.content !== this.ue.getContent()
-      ) {
+      const content = this.ue.getContent()
+      if (typeof this.props.content === 'string' && this.props.content !== content) {
         this.isContentChangeByProps = true
         this.latex2Img(this.props.content)
-      }
-    })
-  }
-
-  componentWillReceiveProps(nextProps) {
-    this.ue.ready(() => {
-      // 后端可能会直接返回个 null 等，引发错误
-      // 只有 props 值与当前值不一样时才需要更新
-      if (
-        typeof nextProps.content === 'string' &&
-        nextProps.content !== this.ue.getContent()
-      ) {
-        // setContent就会重新渲染ueditor
-        this.isContentChangeByProps = true
-        this.ue.setContent(nextProps.content)
       }
     })
   }
@@ -71,39 +56,34 @@ class Ueditor extends React.Component {
   initEditor() {
     this.ue.addListener('contentChange', () => {
       // 由传入 props 引起的 contentChange，不需要重复通知到父组件
+      const uContent = this.ue.getContent()
       if (this.isContentChangeByProps) {
         this.isContentChangeByProps = false
       } else {
-        this.props.onChange(this.ue.getContent())
+        this.props.onChange(uContent)
       }
     })
   }
 
   // latex公式转换成ueditor识别的base64图片
   latex2Img = content => {
-    const REGEX = /\\\(.*?\\\)|\$[^$].*?[^$]\$|\$\$.*?\$\$/g
-    const REGEX2 = /\$[^$].*?[^$]\$/g
     const latexs = content.match(REGEX)
     if (latexs) {
       const latexMap = new Map()
       window.drawLaTex(content, base64Imgs => {
         base64Imgs.map((img, index) => {
           const latex = latexs[index]
-          let parseLatex = null
+          let parsedLatex = null
           // 如果latex以一个$开头和结束，去掉该$;否则去掉两个$,或\(
           if (REGEX2.test(latex)) {
-            parseLatex = latex.slice(1, -1)
+            parsedLatex = latex.slice(1, -1)
           } else {
-            parseLatex = latex.slice(2, -2)
+            parsedLatex = latex.slice(2, -2)
           }
-          latexMap.set(
-            latex,
-            `<img class="kfformula" src='${img}' data-latex='${parseLatex}'/>`
-          )
+          latexMap.set(latex, `<img class="kfformula" src='${img}' data-latex='${parsedLatex}' />`)
           return null
         })
-        const text =
-          content && content.replace(REGEX, match => latexMap.get(match))
+        const text = content && content.replace(REGEX, (match) => latexMap.get(match))
         this.ue.setContent(text || content)
       })
     }

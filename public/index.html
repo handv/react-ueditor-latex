@@ -26,7 +26,7 @@
       You need to enable JavaScript to run this app.
     </noscript>
     <div id="root"></div>
-    <script type="text/x-mathjax-config">
+  <script type="text/x-mathjax-config">
     MathJax.Hub.Config({
       skipStartupTypeset:true,
       showProcessingMessages: false,
@@ -42,7 +42,13 @@
           width: "container"
         }
       }
-    })
+    });
+    MathJax.Ajax.config.path["mhchem"] = "https://cdnjs.cloudflare.com/ajax/libs/mathjax-mhchem/3.3.2";
+    MathJax.Hub.Config({
+      TeX: {
+        extensions: ["[mhchem]/mhchem.js"]
+      }
+    });
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_SVG"></script>
   <script src="./ueditor/ueditor.config.js"></script>
