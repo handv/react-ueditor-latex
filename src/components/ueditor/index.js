@@ -38,12 +38,16 @@ class Ueditor extends React.Component {
       initialFrameHeight: this.props.height,
     })
     this.ue.ready(() => {
-      this.initEditor()
-      const content = this.ue.getContent()
-      if (typeof this.props.content === 'string' && this.props.content !== content) {
-        this.isContentChangeByProps = true
-        this.latex2Img(this.props.content)
-      }
+      // () => this.changeByUe()，必须这样写，否则ue会自动给传一个contentChange的参数
+      this.ue.addListener('contentChange', () => this.changeByUe())
+      // 初始化数据，把props的内容传给ueditor
+      this.changeByProps()
+    })
+  }
+
+  componentDidUpdate() {
+    this.ue.ready(() => {
+      this.changeByProps()
     })
   }
 
@@ -53,41 +57,55 @@ class Ueditor extends React.Component {
     }
   }
 
-  initEditor() {
-    this.ue.addListener('contentChange', () => {
-      // 由传入 props 引起的 contentChange，不需要重复通知到父组件
-      const uContent = this.ue.getContent()
-      if (this.isContentChangeByProps) {
-        this.isContentChangeByProps = false
-      } else {
-        this.props.onChange(uContent)
-      }
-    })
+  // 修改ue 内容引发的，更新props
+  changeByUe = (isContentChangeByProps) => {
+    // props引发的ue变化，不需要ue再去change props
+    if (isContentChangeByProps) {
+      return
+    }
+
+    const { content } = this.props
+    const ueContent = this.ue.getContent()
+    // 不一致时更改props
+    if (typeof content === 'string' && content !== ueContent ) {
+      this.props.onChange(ueContent)
+    }
   }
 
-  // latex公式转换成ueditor识别的base64图片
-  latex2Img = content => {
-    const latexs = content.match(REGEX)
-    if (latexs) {
-      const latexMap = new Map()
-      window.drawLaTex(content, base64Imgs => {
-        base64Imgs.map((img, index) => {
-          const latex = latexs[index]
-          let parsedLatex = null
-          // 如果latex以一个$开头和结束，去掉该$;否则去掉两个$,或\(
-          if (REGEX2.test(latex)) {
-            parsedLatex = latex.slice(1, -1)
-          } else {
-            parsedLatex = latex.slice(2, -2)
-          }
-          latexMap.set(latex, `<img class="kfformula" src='${img}' data-latex='${parsedLatex}' />`)
-          return null
+  // props引发的更新，修改ue的content
+  changeByProps = () => {
+    const { content } = this.props
+    const ueContent = this.ue.getContent()
+    if (typeof content === 'string') {
+      const latexs = content.match(REGEX)
+      if (latexs) {
+        // 如果含有latex公式，转换成ueditor识别的base64图片
+        const latexMap = new Map()
+        window.drawLaTex(content, base64Imgs => {
+          base64Imgs.map((img, index) => {
+            const latex = latexs[index]
+            let parsedLatex = null
+            // 如果latex以一个$开头和结束，去掉该$;否则去掉两个$,或\(
+            if (REGEX2.test(latex)) {
+              parsedLatex = latex.slice(1, -1)
+            } else {
+              parsedLatex = latex.slice(2, -2)
+            }
+            latexMap.set(latex, `<img class="kfformula" data-latex='${parsedLatex}' src='${img}' />`);
+            return null
+          })
+          const text = content && content.replace(REGEX, (match) => latexMap.get(match))
+          // 这里ue和props都需要把latex公式改为图片<img>标签。但是props的更改放到changeByUe里面做
+          this.ue.setContent(text || content)
+          this.changeByUe()
         })
-        const text = content && content.replace(REGEX, (match) => latexMap.get(match))
-        this.ue.setContent(text || content)
-      })
+      } else if (content !== ueContent) {
+        // 这里只需要改ue
+        this.ue.setContent(content)
+        // 这里主动触发一下，因为某些情况下，第一次打开页面的时候，setContent没有触发contentChange。导致bug
+        this.changeByUe(true)
+      }
     }
-    this.ue.setContent(content)
   }
 
   render() {
